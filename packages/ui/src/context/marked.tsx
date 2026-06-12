@@ -379,6 +379,32 @@ registerCustomTheme("OpenCode", () => {
 function renderMathInText(text: string): string {
   let result = text
 
+  // Display math: \[...\]
+  const latexDisplayRegex = /\\\[([\s\S]*?)\\\]/g
+  result = result.replace(latexDisplayRegex, (_, math) => {
+    try {
+      return katex.renderToString(math, {
+        displayMode: true,
+        throwOnError: false,
+      })
+    } catch {
+      return `\\[${math}\\]`
+    }
+  })
+
+  // Inline math: \(...\)
+  const latexInlineRegex = /\\\(([\s\S]*?)\\\)/g
+  result = result.replace(latexInlineRegex, (_, math) => {
+    try {
+      return katex.renderToString(math, {
+        displayMode: false,
+        throwOnError: false,
+      })
+    } catch {
+      return `\\(${math}\\)`
+    }
+  })
+
   // Display math: $$...$$
   const displayMathRegex = /\$\$([\s\S]*?)\$\$/g
   result = result.replace(displayMathRegex, (_, math) => {
