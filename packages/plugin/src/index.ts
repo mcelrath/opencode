@@ -279,6 +279,16 @@ export interface Hooks {
       metadata: any
     },
   ) => Promise<void>
+  /**
+   * Transform the message array before each LLM call.
+   *
+   * KV-cache contract: to avoid invalidating the backend prefix cache,
+   * plugins MUST only append new parts to existing messages (e.g. push a
+   * synthetic part onto `lastUser.parts`). Do NOT insert new messages into
+   * the middle of the history, and do NOT mutate the `text` of existing
+   * non-synthetic parts. Any change to tokens at position N invalidates the
+   * cache from N forward, so all modifications must happen at the tail.
+   */
   "experimental.chat.messages.transform"?: (
     input: {},
     output: {

@@ -1307,18 +1307,21 @@ export const layer = Layer.effect(
             if (step > 1 && lastFinished) {
               for (const m of msgs) {
                 if (m.info.role !== "user" || m.info.id <= lastFinished.id) continue
-                for (const p of m.parts) {
-                  if (p.type !== "text" || p.ignored || p.synthetic) continue
-                  if (!p.text.trim()) continue
-                  p.text = [
-                    "<system-reminder>",
-                    "The user sent the following message:",
-                    p.text,
-                    "",
-                    "Please address this message and continue with your tasks.",
-                    "</system-reminder>",
-                  ].join("\n")
-                }
+                const hasNonSyntheticText = m.parts.some(
+                  (p) => p.type === "text" && !p.ignored && !p.synthetic && p.text.trim(),
+                )
+                if (!hasNonSyntheticText) continue
+                // Prepend a synthetic reminder part rather than mutating user message text.
+                // Mutating text changes the token sequence of existing messages, invalidating
+                // the backend KV cache for all content after the mutation point.
+                m.parts.unshift({
+                  id: PartID.ascending(),
+                  messageID: m.info.id,
+                  sessionID: m.info.sessionID,
+                  type: "text" as const,
+                  text: "<system-reminder>\nThe user sent the following message. Please address it and continue with your tasks.\n</system-reminder>",
+                  synthetic: true,
+                })
               }
             }
 
@@ -1328,9 +1331,11 @@ export const layer = Layer.effect(
               sys.skills(agent),
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
-              MessageV2.toModelMessagesEffect(msgs, model),
+              MessageV2.toModelMessagesEffect(msgs, model, { toolOutputMaxChars: 2000 }),
             ])
-            const system = [...env, ...instructions, ...(skills ? [skills] : [])]
+            // Date is appended last so the stable static prefix (env, instructions, skills)
+            // never changes, maximising KV-cache reuse across calendar-day boundaries.
+            const system = [...env, ...instructions, ...(skills ? [skills] : []), `Today's date: ${new Date().toDateString()}`]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({
