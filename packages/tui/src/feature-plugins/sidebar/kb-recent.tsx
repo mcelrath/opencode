@@ -1,6 +1,6 @@
 import type { TuiPlugin, TuiPluginApi } from "@opencode-ai/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
-import { createSignal, createEffect, For, Show, onCleanup } from "solid-js"
+import { createSignal, For, Show, onCleanup } from "solid-js"
 
 const id = "internal:sidebar-kb-recent"
 
